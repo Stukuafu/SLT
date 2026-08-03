@@ -37,31 +37,31 @@ export const services = [
 export const projects = [
   {
     category: 'Website strategy',
-    title: 'Northline Homes',
-    description: 'A refined digital presence for an architectural building company.',
-    image: '/images/project-northline.webp',
-    alt: 'Contemporary two-storey home at dusk',
+    title: 'Coastal Escapes',
+    description: 'A refined digital presence for a boutique coastal retreat.',
+    image: '/images/project-tide.webp',
+    alt: 'Luxury coastal retreat overlooking the ocean',
   },
   {
     category: 'Brand identity',
-    title: 'Aroha Botanics',
-    description: 'A calm, premium brand system for a natural skincare studio.',
+    title: 'Pureline Skincare',
+    description: 'A calm, premium identity for a natural skincare studio.',
     image: '/images/project-aroha.webp',
     alt: 'Minimal natural skincare bottles and foliage',
   },
   {
     category: 'Website & content',
-    title: 'Harbour & Field',
-    description: 'A warm, story-led launch for a neighbourhood food business.',
+    title: 'Harvest & Co.',
+    description: 'A warm, story-led website for a neighbourhood restaurant.',
     image: '/images/project-harbour.webp',
     alt: 'Warm cafe interior with a coffee cup in the foreground',
   },
   {
     category: 'Photography',
-    title: 'Tide & Track',
-    description: 'Destination imagery created for a boutique coastal travel brand.',
-    image: '/images/project-tide.webp',
-    alt: 'Moody New Zealand coastline and ocean',
+    title: 'Horizon Builders',
+    description: 'A polished portfolio and campaign for a residential builder.',
+    image: '/images/project-northline.webp',
+    alt: 'Contemporary two-storey home at dusk',
   },
 ];
 

@@ -9,8 +9,9 @@ export default function Testimonials() {
 
   const visibleCount = useCallback(() => {
     if (window.innerWidth < 680) return 1;
-    if (window.innerWidth < 1050) return 2;
-    return 3;
+    if (window.innerWidth < 980) return 2;
+    if (window.innerWidth < 1280) return 3;
+    return 5;
   }, []);
 
   const scrollToIndex = useCallback((nextIndex, behaviour = 'smooth') => {
