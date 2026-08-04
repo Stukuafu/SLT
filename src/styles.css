@@ -111,7 +111,7 @@ h2 { margin-bottom: 12px; font-size: clamp(1.9rem, 3vw, 3.05rem); line-height: 1
 
 .hero {
   position: relative;
-  min-height: 430px;
+  min-height: 520px;
   overflow: hidden;
   color: var(--white);
   background: var(--charcoal);
@@ -123,10 +123,11 @@ h2 { margin-bottom: 12px; font-size: clamp(1.9rem, 3vw, 3.05rem); line-height: 1
     linear-gradient(90deg, rgba(20, 23, 19, 0.94) 0%, rgba(20, 23, 19, 0.85) 26%, rgba(20, 23, 19, 0.42) 52%, rgba(20, 23, 19, 0.08) 78%),
     linear-gradient(0deg, rgba(18, 20, 17, 0.28), transparent 42%);
 }
-.hero__inner { position: relative; z-index: 2; min-height: 430px; display: flex; align-items: center; }
+.hero__inner { position: relative; z-index: 2; min-height: 520px; display: flex; align-items: center; }
 
 .hero__content {
   width: min(480px, 47%);
+  padding-top: 58px;
   display: flex;
   flex-direction: column;
   gap: 4px;
