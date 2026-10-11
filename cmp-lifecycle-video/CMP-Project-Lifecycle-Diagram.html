@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CMP project lifecycle</title>
-<script>if(/[?&]video(=|&|$)/.test(location.search))document.documentElement.classList.add('video');if(/[?&]caption=long/.test(location.search))document.documentElement.classList.add('long')</script>
+<script>if(/[?&](video|routes)(=|&|$)/.test(location.search))document.documentElement.classList.add('video');if(/[?&]routes(=|&|$)/.test(location.search))document.documentElement.classList.add('routes');if(/[?&]caption=long/.test(location.search))document.documentElement.classList.add('long')</script>
 <style>
 /* ------------------------------------------------------------------
    BRAND TOKENS
@@ -177,6 +177,53 @@ html.video,html.video body{height:100%;overflow:hidden}
 .card h1{font-size:84px;max-width:15ch;margin:22px 0 0}
 .card h1::after{content:"";display:block;width:120px;height:10px;margin-top:30px;background:var(--hivis)}
 .card p{margin:30px 0 0;max-width:46ch;color:#CFD8DE;font-size:24px;line-height:1.45}
+
+/* ------------------------------------------------------------------
+   ROUTES MODE: add ?routes to the URL. Both phases on one screen, with a
+   project tag walking each route in turn: approved, rejected, build fails,
+   kept for another review, archived. Plays by itself, like ?video.
+------------------------------------------------------------------- */
+html.routes{--cap:124px}
+.routes .spine-wrap{display:flex;align-items:center;gap:0 18px;height:54px;padding:0}
+.routes .spine-head{margin:0}
+.routes .spine-head span{display:none}
+.routes .spine-head h2{font-size:16px}
+.routes .spine li{padding:5px 12px;font-size:14px}
+.routes .spine li+li{margin-left:18px}
+.routes .spine li+li::before{left:-18px;width:18px}
+.routes .phase{margin:6px 0 0}
+.routes .phase h2{font-size:18px;margin:0 0 4px}
+.routes .phase .sub,.routes .bridge{display:none}
+.routes .bandwrap{overflow:hidden}
+.routes .band{grid-auto-rows:106px;min-width:0}
+.routes .node{margin:16px 12px 6px;padding:11px 10px 8px;gap:3px}
+.routes .node.approval{padding-left:15px}
+.routes .node p{display:none}
+.routes .node .tag{font-size:11px}
+.routes .node h3{font-size:15px}
+.routes .node.hid{opacity:0}
+.routes .node.dim{opacity:.28}
+.node.outcome{background:var(--hivis-soft);border-color:var(--hivis)}
+.node.outcome .tag{color:var(--hivis-text)}
+.sw.outcome{background:var(--hivis-soft);border:1.5px solid var(--hivis)}
+.routes .legend{margin:10px 12px 10px 8px;padding:10px 14px}
+.routes .legend ul{gap:7px}
+.routes .legend li{font-size:12.5px}
+.routes .legend .note{margin-top:8px;padding-top:8px;font-size:12px}
+.routes path.edge,.routes .elabel{transition:opacity .4s}
+.routes path.edge.off,.elabel.off{opacity:.25}
+.routes path.edge.hid,.elabel.hid{opacity:0}
+.elabel rect{fill:var(--paper);stroke:var(--line)}
+.elabel text{font:700 12px var(--head);fill:var(--slate)}
+.routes .token{transition:opacity .4s}
+.routes .bar i{transition:none}
+.routes .pin{padding-top:10px}
+.routes #ptitle{font-size:25px}
+.routes #ptext{font-size:18px}
+.routes #pnote{margin-top:3px;font-size:16px}
+#rchip{margin-left:auto;max-width:930px;padding:6px 14px;border-left:6px solid var(--hivis);background:var(--hivis-soft);color:var(--ink);font:700 16px/1.25 var(--head);transition:opacity .4s}
+#rchip small{display:block;color:var(--hivis-text);font:600 12px/1.2 var(--body)}
+#rchip.off{opacity:0}
 </style>
 </head>
 <body>
@@ -318,9 +365,23 @@ html.video,html.video body{height:100%;overflow:hidden}
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var query = new URLSearchParams(location.search);
   var VIDEO = query.has('video');
+  var ROUTES = query.has('routes');
   var CAPTION_LONG = query.get('caption') === 'long';   /* video subtitles use the short line by default */
   var VIDEO_MS = (parseFloat(query.get('seconds')) || 60) * 1000;
   var CARD_MS = 3000, FADE_MS = 500;
+
+  /* routes mode only: the two ways a request can end early, taken from the step descriptions */
+  if(ROUTES){
+    NODES.push(
+      {id:'rej', band:1, lane:0, col:4, kind:'outcome', todo:false, tag:'Outcome', title:'Rejected',
+        short:'Marked in the Register. The project manager is told.',
+        long:'Rejected requests are marked in the Register and the project manager is told.'},
+      {id:'fail', band:1, lane:1, col:6, kind:'outcome', todo:false, tag:'Outcome', title:'Failed',
+        short:'Site Request is set to Failed. The Project Office can see it straight away.',
+        long:'If anything goes wrong the flow sets Site Request to Failed, so the Project Office can see it straight away.'}
+    );
+    EDGES.push(['s3','rej'],['s6','fail']);
+  }
 
   var byId = {}; NODES.forEach(function(n){ byId[n.id]=n; });
   var bands = {1:document.getElementById('band1'), 2:document.getElementById('band2')};
@@ -419,7 +480,9 @@ html.video,html.video body{height:100%;overflow:hidden}
       var A = rel(els[a.id], bands[b]), C = rel(els[c.id], bands[b]);
       var pts;
       if(e[2]==='loop'){
-        pts = [[A.cx,A.t],[A.cx,A.t-17],[C.l+26,A.t-17],[C.l+26,C.t]];
+        pts = [[A.cx,A.t],[A.cx,A.t-(ROUTES?10:17)],[C.l+26,A.t-(ROUTES?10:17)],[C.l+26,C.t]];
+      } else if(Math.abs(A.cx-C.cx)<2){
+        pts = C.cy<A.cy ? [[A.cx,A.t],[C.cx,C.b]] : [[A.cx,A.b],[C.cx,C.t]];
       } else if(Math.abs(A.cy-C.cy)<2){
         pts = [[A.r,A.cy],[C.l,C.cy]];
       } else {
@@ -434,6 +497,7 @@ html.video,html.video body{height:100%;overflow:hidden}
       edgeEls[e[0]+'>'+e[1]] = p;
     });
     applyEdgeState(idx,false);
+    if(ROUTES) placeLabels();
   }
 
   /* ---------- state ---------- */
@@ -562,17 +626,19 @@ html.video,html.video body{height:100%;overflow:hidden}
   });
   ro.observe(bands[1]); ro.observe(bands[2]);
 
-  /* ---------- video mode (?video) ---------- */
+  /* ---------- shared by ?video and ?routes ---------- */
   function captionText(n){ return VIDEO && !CAPTION_LONG ? n.short : n.long; }
-
+  function el(cls, parent){ var d = document.createElement('div'); d.className = cls; if(parent) parent.appendChild(d); return d; }
+  function card(cls, heading, line){
+    var c = el('card '+cls, document.body);
+    c.innerHTML = '<div class="brand">'+document.querySelector('.brand').textContent+'</div><h1>'+heading+'</h1>'+(line ? '<p>'+line+'</p>' : '');
+    return c;
+  }
+  var HEADING = 'Project lifecycle, request to archive';
   var track, titleCard, endCard;
+
+  /* ---------- video mode (?video) ---------- */
   function setupVideo(){
-    function el(cls, parent){ var d = document.createElement('div'); d.className = cls; if(parent) parent.appendChild(d); return d; }
-    function card(cls, heading, line){
-      var c = el('card '+cls, document.body);
-      c.innerHTML = '<div class="brand">'+document.querySelector('.brand').textContent+'</div><h1>'+heading+'</h1>'+(line ? '<p>'+line+'</p>' : '');
-      return c;
-    }
     /* two slides side by side; the camera pans between them */
     var wrap = document.querySelector('main .wrap');
     var phases = wrap.querySelectorAll('.phase');
@@ -581,9 +647,8 @@ html.video,html.video body{height:100%;overflow:hidden}
     s1.appendChild(phases[0]);
     s2.appendChild(wrap.querySelector('.bridge')); s2.appendChild(phases[1]);
 
-    var heading = 'Project lifecycle, request to archive';
-    titleCard = card('title', heading);
-    endCard = card('end off', heading, document.querySelector('footer').textContent);
+    titleCard = card('title', HEADING);
+    endCard = card('end off', HEADING, document.querySelector('footer').textContent);
   }
 
   /* step lengths scale with how much there is to read, and sum to the video length */
@@ -612,12 +677,215 @@ html.video,html.video body{height:100%;overflow:hidden}
     return plan;
   }
 
-  if(VIDEO) setupVideo();
+  /* ---------- routes mode (?routes) ---------- */
+  /* Each route is a list of stops. fast stops replay the shared start of a route quickly.
+     Names and one-line briefs paraphrase the step descriptions above. */
+  var ROUTE_DEFS = [
+    {name:'Approved: the site is built and the project runs',
+     brief:'The Project Office approves, the flow builds the site and the team starts work.',
+     stops:[{id:'s1',st:'Prospect'},{id:'s2',st:'Prospect'},{id:'s3',st:'Prospect'},{id:'s4',st:'Prospect'},{id:'s5',st:'Prospect'},{id:'s6',st:'Prospect'},
+            {id:'s7',st:'Active',note:'Active: the team is delivering.'},{id:'s7',st:'Complete',note:'Complete: the date is recorded.'}]},
+    {name:'Rejected: the request stops at approval',
+     brief:'The Project Office says no. The Register is marked and the project manager is told.',
+     stops:[{id:'s1',st:'Prospect',fast:1},{id:'s2',st:'Prospect',fast:1},{id:'s3',st:'Prospect'},{id:'rej',st:'Prospect'}]},
+    {name:'Something goes wrong while building the site',
+     brief:'The flow sets Failed in the Register, so the Project Office can see it straight away.',
+     stops:[{id:'s1',st:'Prospect',fast:1},{id:'s2',st:'Prospect',fast:1},{id:'s3',st:'Prospect',fast:1},{id:'s4',st:'Prospect'},{id:'s5',st:'Prospect'},{id:'s6',st:'Prospect'},{id:'fail',st:'Prospect'}]},
+    {name:'Keep: the review date moves out',
+     brief:'The project stays Complete and the weekly check picks it up again on the new date.',
+     stops:[{id:'s8',st:'Complete',note:'Two years later.',bridge:1},{id:'s9',st:'Complete'},{id:'s10',st:'Complete',note:'Answer: Keep and review in 6 months.'},
+            {id:'s8',st:'Complete',note:'Six months later, the review date has passed.'}]},
+    {name:'Archive: the site is retired',
+     brief:'The admin gets the project and its site link, archives the site and marks the Register Archived.',
+     stops:[{id:'s8',st:'Complete',fast:1},{id:'s9',st:'Complete'},{id:'s11',st:'Complete',note:'Answer: Archive.'},{id:'s12',st:'Complete'},{id:'s13',st:'Archived'}]}
+  ];
+  var EDGE_LABELS = [
+    {key:'s3>s4',text:'Approved'}, {key:'s3>rej',text:'Rejected'}, {key:'s6>fail',text:'If anything goes wrong',side:'left'},
+    {key:'s9>s10',text:'Keep'}, {key:'s9>s11',text:'Archive'}
+  ];
+  var routePlan = null, lbls = [], capKey = '', spineKey = '', chip;
+  var OVERVIEW_MS = 5000, INTRO_MS = 1300, SUMMARY_MS = 4500;
+  var SUMMARY = 'Approved, rejected, failed, kept or archived: the Register shows where every project stands.';
+
+  function setupRoutes(){
+    titleCard = card('title', HEADING, 'Every route a project can take');
+    endCard = card('end off', HEADING, document.querySelector('footer').textContent);
+    chip = el('off', document.querySelector('.spine-wrap')); chip.id = 'rchip';
+    var ul = document.querySelector('.legend ul');
+    ul.insertAdjacentHTML('beforeend', '<li><span class="sw outcome"></span><span>Where a route can end early</span></li>');
+  }
+
+  function placeLabels(){
+    lbls.forEach(function(l){ l.g.remove(); }); lbls = [];
+    EDGE_LABELS.forEach(function(L){
+      var p = edgeEls[L.key]; if(!p) return;
+      var m = p.getPointAtLength(p.getTotalLength()/2);
+      var g = document.createElementNS(SVGNS,'g'); g.setAttribute('class','elabel');
+      var r = document.createElementNS(SVGNS,'rect'), t = document.createElementNS(SVGNS,'text');
+      t.textContent = L.text;
+      t.setAttribute('text-anchor', L.side==='left' ? 'end' : 'middle');
+      t.setAttribute('x', m.x - (L.side==='left' ? 10 : 0)); t.setAttribute('y', m.y + 4);
+      g.appendChild(r); g.appendChild(t);
+      svgs[byId[L.key.split('>')[0]].band].appendChild(g);
+      var bb = t.getBBox();
+      r.setAttribute('x', bb.x-5); r.setAttribute('y', bb.y-2); r.setAttribute('width', bb.width+10); r.setAttribute('height', bb.height+4); r.setAttribute('rx', 3);
+      lbls.push({g:g, key:L.key});
+    });
+  }
+
+  function ease(u){ return u<.5 ? 4*u*u*u : 1-Math.pow(-2*u+2,3)/2; }
+  function pin(n){ var r = rel(els[n.id], bands[n.band]); return [r.l+18, r.t-3]; }   /* where the tag's dot sits on a node */
+
+  /* the tag's journey along one edge: from its node, along the line, into the next node */
+  function journey(a, b){
+    var p = edgeEls[a.id+'>'+b.id], len = p.getTotalLength();
+    var pts = [pin(a)];
+    for(var d=0; d<=len; d+=5){ var q = p.getPointAtLength(d); pts.push([q.x,q.y]); }
+    var e = p.getPointAtLength(len); pts.push([e.x,e.y]); pts.push(pin(b));
+    var cum = [0];
+    for(var i=1;i<pts.length;i++) cum.push(cum[i-1] + Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]));
+    return {pts:pts, cum:cum, total:cum[cum.length-1], lead:cum[1], line:cum[cum.length-2]-cum[1]};
+  }
+  function along(j, s){
+    var i = 1; while(i < j.cum.length-1 && j.cum[i] < s) i++;
+    var f = (s - j.cum[i-1]) / ((j.cum[i]-j.cum[i-1]) || 1);
+    return [j.pts[i-1][0] + (j.pts[i][0]-j.pts[i-1][0])*f, j.pts[i-1][1] + (j.pts[i][1]-j.pts[i-1][1])*f];
+  }
+
+  function planRoutes(){
+    drawEdges();
+    var at = CARD_MS + OVERVIEW_MS, edgeDone = {}, travels = [];
+    var routes = ROUTE_DEFS.map(function(def){
+      var r = {def:def, t0:at, nodes:{}, edges:{}, stops:[]};
+      at += INTRO_MS;
+      def.stops.forEach(function(s, i){
+        var n = byId[s.id], prev = r.stops[i-1];
+        var stop = {node:n, st:s.st, fast:!!s.fast, note:s.note, bridge:!!s.bridge, outcome:n.kind==='outcome'};
+        if(prev && prev.node.id !== n.id){
+          var key = prev.node.id+'>'+n.id;
+          stop.travel = {key:key, start:at, end:at+(s.fast?550:850), j:journey(prev.node, n)};
+          at = stop.travel.end; travels.push(stop.travel); r.edges[key] = 1;
+          if(edgeDone[key] === undefined) edgeDone[key] = at;
+        }
+        stop.arrive = at;
+        stop.leave = at + (s.fast ? 350 : stop.outcome ? 2400 : stop.bridge ? 2600 : 1750);
+        at = stop.leave; r.nodes[n.id] = 1; r.stops.push(stop);
+      });
+      r.end = at + 300; at = r.end;
+      return r;
+    });
+    return {routes:routes, travels:travels, edgeDone:edgeDone, summary:at, duration:at + SUMMARY_MS + CARD_MS};
+  }
+
+  function setCaption(meta, title, text, note, t, D){
+    var key = meta+'|'+title+'|'+text+'|'+note;
+    if(key !== capKey){
+      capKey = key;
+      $('pmeta').innerHTML = meta; $('ptitle').textContent = title; $('ptext').textContent = text; $('pnote').textContent = note || '';
+    }
+    $('pbar').style.width = (t/D*100)+'%';
+  }
+
+  /* the whole picture for one moment in time, so any frame can be drawn on its own */
+  function renderRoutes(t){
+    var P = routePlan, D = P.duration;
+    titleCard.classList.toggle('off', t >= CARD_MS);
+    endCard.classList.toggle('off', t < D - CARD_MS - FADE_MS);
+
+    var r = null, ri = -1;
+    P.routes.forEach(function(x, i){ if(t >= x.t0 && t < x.end){ r = x; ri = i; } });
+    var step = null, si = -1;
+    if(r) r.stops.forEach(function(s, i){ if(t >= s.arrive) { step = s; si = i; } });
+    var run = r && step && t < r.stops[r.stops.length-1].leave;
+    var tr = null;
+    P.travels.forEach(function(x){ if(t >= x.start && t < x.end) tr = x; });
+
+    /* nodes: reveal in order, dim the ones off the current route, outline the one the tag is on */
+    Object.keys(els).forEach(function(id, i){
+      var n = els[id];
+      n.classList.toggle('hid', t < CARD_MS + 60*i);
+      n.classList.toggle('dim', !!r && !r.nodes[id]);
+      n.classList.toggle('active', !!run && !tr && step.node.id === id);
+    });
+
+    /* edges: idle, drawn live under the tag, then dark once travelled */
+    var prog = 0;
+    if(tr){ var s = ease((t-tr.start)/(tr.end-tr.start)) * tr.j.total; prog = Math.max(0, Math.min(1, (s - tr.j.lead) / tr.j.line)); }
+    Object.keys(edgeEls).forEach(function(k){
+      var p = edgeEls[k], loop = /loop/.test(p.getAttribute('class'));
+      var st = P.edgeDone[k] !== undefined && t >= P.edgeDone[k] ? 'done' : (tr && tr.key === k ? 'live' : '');
+      var cls = 'edge' + (loop ? ' loop' : '') + (st ? ' '+st : '') + (r && !r.edges[k] ? ' off' : '') + (t < CARD_MS + 900 ? ' hid' : '');
+      if(p.getAttribute('class') !== cls) p.setAttribute('class', cls);
+      if(st === 'live' && !loop){
+        var len = p.getTotalLength();
+        p.style.strokeDasharray = len; p.style.strokeDashoffset = len*(1-prog);
+      } else if(p.style.strokeDasharray){ p.style.strokeDasharray = ''; p.style.strokeDashoffset = ''; }
+    });
+    lbls.forEach(function(l){
+      l.g.classList.toggle('off', !!r && !r.edges[l.key]);
+      l.g.classList.toggle('hid', t < CARD_MS + 900);
+    });
+
+    /* the project tag */
+    [1,2].forEach(function(b){ tokens[b].classList.remove('show'); });
+    if(run){
+      var tk = tokens[step.node.band], at;      /* while travelling, step is the stop it left */
+      if(tr) at = along(tr.j, ease((t-tr.start)/(tr.end-tr.start)) * tr.j.total);
+      else at = pin(step.node);
+      tk.style.left = (at[0]-10)+'px'; tk.style.top = (at[1]-12)+'px';
+      tk.querySelector('small').textContent = step.st;
+      tk.classList.add('show');
+    }
+
+    /* status spine */
+    var st = run ? step.st : null, sk = String(st);
+    if(sk !== spineKey){
+      spineKey = sk;
+      var i = STATUS_ORDER.indexOf(st);
+      Array.prototype.forEach.call($('spine').children, function(li, j){ li.classList.toggle('on', j===i); li.classList.toggle('past', i>-1 && j<i); });
+    }
+
+    /* route label and caption bar */
+    chip.classList.toggle('off', !r);
+    if(r){ var cn = 'Route '+(ri+1)+' of '+P.routes.length; chip.innerHTML = '<small>'+cn+'</small>'+r.def.name; }
+    if(!r && t < P.summary){
+      setCaption('<b>Overview</b>', 'The whole process on one page', 'Follow one project, #1042, down each route it can take.', '', t, D);
+    } else if(!r){
+      setCaption('<b>All routes</b>', 'Five routes, one process', SUMMARY, '', t, D);
+    } else if(!step || step.fast){
+      setCaption('Route '+(ri+1)+' of '+P.routes.length, r.def.name, r.def.brief, '', t, D);
+    } else {
+      var n = step.node;
+      setCaption('Route '+(ri+1)+' of '+P.routes.length+'. <b>'+LANES[n.band][n.lane]+'</b>'+(n.todo?'. Not built yet.':''),
+        n.title, step.bridge ? document.querySelector('.bridge').textContent : n.short, step.note, t, D);
+    }
+  }
+
+  function checkRoutes(){
+    var cap = document.querySelector('.panel').getBoundingClientRect().top, over = bands[2].getBoundingClientRect().bottom - cap;
+    return over > 0 ? 'Both phases do not fit above the caption bar: '+over.toFixed(0)+' px over' : '';
+  }
+
+  function startRoutes(){
+    routePlan = planRoutes();
+    window.__video.duration = routePlan.duration;
+    renderRoutes(0);
+    if(!window.__videoManual){
+      var t0 = performance.now();
+      (function frame(){ var t = Math.min(performance.now()-t0, routePlan.duration); renderRoutes(t); if(t < routePlan.duration) requestAnimationFrame(frame); })();
+    }
+    return routePlan.routes.map(function(x){ return {start:x.t0, ms:x.end-x.t0}; });
+  }
+
+  if(VIDEO) setupVideo(); else if(ROUTES) setupRoutes();
   drawEdges();
   show(-1,false);
   if(VIDEO){
     window.__video = {duration: VIDEO_MS, plan: planVideo, start: startVideo};
     if(!window.__videoManual) startVideo();      /* a recorder sets __videoManual and calls start() itself */
+  } else if(ROUTES){
+    window.__video = {duration: 0, plan: function(){ return []; }, start: startRoutes, seek: function(t){ renderRoutes(t); }, check: checkRoutes};
+    if(!window.__videoManual) startRoutes();
   } else if(!reduce){
     setTimeout(function(){ if(idx===-1 && !playing) play(); }, 1200);
   }

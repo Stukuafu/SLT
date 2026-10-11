@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /*
- * Records CMP-Project-Lifecycle-Diagram.html?video to a 1920x1080, 30 fps H.264 MP4.
+ * Records CMP-Project-Lifecycle-Diagram.html to a 1920x1080, 30 fps H.264 MP4.
  *
  *   NODE_PATH=/opt/node-tools/node_modules node record-video.cjs [--seconds=60] [--caption=long] [--out=file.mp4]
+ *       the step-by-step walkthrough (?video), CMP-Project-Lifecycle-Diagram.mp4
+ *   NODE_PATH=/opt/node-tools/node_modules node record-video.cjs --mode=routes [--out=file.mp4]
+ *       the single-screen routes diagram (?routes), CMP-Project-Lifecycle-Routes.mp4
  *
  * Needs Playwright (with Chromium) and ffmpeg. Playwright drives the page and takes the
  * pictures; ffmpeg encodes them.
@@ -26,7 +29,8 @@ const arg = (name, fallback) => {
 };
 const SECONDS = parseFloat(arg('seconds', '60'));
 const CAPTION = arg('caption', 'short');
-const OUT = path.resolve(arg('out', path.join(__dirname, 'CMP-Project-Lifecycle-Diagram.mp4')));
+const MODE = arg('mode', 'video');
+const OUT = path.resolve(arg('out', path.join(__dirname, MODE === 'routes' ? 'CMP-Project-Lifecycle-Routes.mp4' : 'CMP-Project-Lifecycle-Diagram.mp4')));
 const HTML = path.join(__dirname, 'CMP-Project-Lifecycle-Diagram.html');
 const FPS = 30;
 const VIEW = { width: 1600, height: 900 };
@@ -52,7 +56,9 @@ function installAnimationStepper() {
 }
 
 async function main() {
-  const url = `file://${HTML}?video&seconds=${SECONDS}${CAPTION === 'long' ? '&caption=long' : ''}`;
+  const url = MODE === 'routes'
+    ? `file://${HTML}?routes`
+    : `file://${HTML}?video&seconds=${SECONDS}${CAPTION === 'long' ? '&caption=long' : ''}`;
   const browser = await chromium.launch({ args: ['--font-render-hinting=none', '--force-color-profile=srgb'] });
   const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: SCALE, colorScheme: 'light' });
   const page = await context.newPage();
@@ -66,20 +72,22 @@ async function main() {
   await page.clock.pauseAt(now + 500);
   await page.clock.runFor(200);             // let the first layout and edge drawing settle
 
+  const plan = await page.evaluate(() => window.__video.start());   // the clock is paused, so nothing runs yet
   const info = await page.evaluate(() => {
-    const view = document.querySelector('.view').getBoundingClientRect();
+    const view = document.querySelector('.view');
     return {
       duration: window.__video.duration,
-      plan: window.__video.plan(),
-      slides: [...document.querySelectorAll('.slide')].map((s) => s.querySelector('.band').getBoundingClientRect().bottom - view.top),
-      viewHeight: view.height,
+      problem: window.__video.check ? window.__video.check() : '',
+      slides: view ? [...document.querySelectorAll('.slide')].map((s) => s.querySelector('.band').getBoundingClientRect().bottom - view.getBoundingClientRect().top) : [],
+      viewHeight: view ? view.getBoundingClientRect().height : 0,
     };
   });
+  if (info.problem) throw new Error(info.problem);
   if (info.slides.some((bottom) => bottom > info.viewHeight)) {
     throw new Error(`A phase does not fit on one screen: band bottoms ${info.slides} vs view height ${info.viewHeight}`);
   }
-  console.log(`fits: band bottoms ${info.slides.map((v) => v.toFixed(0))} inside ${info.viewHeight.toFixed(0)} px`);
-  info.plan.forEach((p, i) => console.log(`step ${String(i + 1).padStart(2)}  ${(p.start / 1000).toFixed(1)}s  ${(p.ms / 1000).toFixed(1)}s`));
+  console.log(MODE === 'routes' ? 'fits: both phases on one screen' : `fits: band bottoms ${info.slides.map((v) => v.toFixed(0))} inside ${info.viewHeight.toFixed(0)} px`);
+  plan.forEach((p, i) => console.log(`${MODE === 'routes' ? 'route' : 'step'} ${String(i + 1).padStart(2)}  ${(p.start / 1000).toFixed(1)}s  ${(p.ms / 1000).toFixed(1)}s`));
 
   const total = Math.round((info.duration / 1000) * FPS);
   const ffmpeg = spawn('ffmpeg', [
@@ -95,13 +103,12 @@ async function main() {
   });
 
   const cdp = await context.newCDPSession(page);
-  await page.evaluate(() => window.__video.start());
   let clock = 0;
   for (let i = 0; i < total; i++) {
     const t = Math.round((i * 1000) / FPS);
     if (t > clock) await page.clock.runFor(t - clock);
     clock = t;
-    await page.evaluate((now) => window.__stepAnimations(now), t);
+    await page.evaluate((now) => { if (window.__video.seek) window.__video.seek(now); window.__stepAnimations(now); }, t);
     const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, clip: { x: 0, y: 0, ...VIEW, scale: SCALE } });
     const png = Buffer.from(data, 'base64');
     if (i === 0 && (png.readUInt32BE(16) !== 1920 || png.readUInt32BE(20) !== 1080)) {
