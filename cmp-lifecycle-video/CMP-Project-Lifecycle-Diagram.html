@@ -179,7 +179,7 @@ html.video,html.video body{height:100%;overflow:hidden}
 .card p{margin:30px 0 0;max-width:46ch;color:#CFD8DE;font-size:24px;line-height:1.45}
 
 /* ------------------------------------------------------------------
-   ROUTES MODE: add ?routes to the URL. Both phases on one screen, with a
+   ROUTES MODE: add ?routes to the URL (or ?routes&still for the finished picture). Both phases on one screen, with a
    project tag walking each route in turn: approved, rejected, build fails,
    kept for another review, archived. Plays by itself, like ?video.
 ------------------------------------------------------------------- */
@@ -217,6 +217,7 @@ html.routes{--cap:124px}
 .elabel text{font:700 12px var(--head);fill:var(--slate)}
 .routes .token{transition:opacity .4s}
 .routes .bar i{transition:none}
+.still .bar{display:none}
 .routes .pin{padding-top:10px}
 .routes #ptitle{font-size:25px}
 .routes #ptext{font-size:18px}
@@ -366,6 +367,7 @@ html.routes{--cap:124px}
   var query = new URLSearchParams(location.search);
   var VIDEO = query.has('video');
   var ROUTES = query.has('routes');
+  var STILL = ROUTES && query.has('still');      /* ?routes&still: the finished picture, no animation */
   var CAPTION_LONG = query.get('caption') === 'long';   /* video subtitles use the short line by default */
   var VIDEO_MS = (parseFloat(query.get('seconds')) || 60) * 1000;
   var CARD_MS = 3000, FADE_MS = 500;
@@ -710,6 +712,7 @@ html.routes{--cap:124px}
   function setupRoutes(){
     titleCard = card('title', HEADING, 'Every route a project can take');
     endCard = card('end off', HEADING, document.querySelector('footer').textContent);
+    if(STILL) document.documentElement.classList.add('still');
     chip = el('off', document.querySelector('.spine-wrap')); chip.id = 'rchip';
     var ul = document.querySelector('.legend ul');
     ul.insertAdjacentHTML('beforeend', '<li><span class="sw outcome"></span><span>Where a route can end early</span></li>');
@@ -850,6 +853,8 @@ html.routes{--cap:124px}
     if(r){ var cn = 'Route '+(ri+1)+' of '+P.routes.length; chip.innerHTML = '<small>'+cn+'</small>'+r.def.name; }
     if(!r && t < P.summary){
       setCaption('<b>Overview</b>', 'The whole process on one page', 'Follow one project, #1042, down each route it can take.', '', t, D);
+    } else if(!r && STILL){
+      setCaption('<b>'+document.querySelector('.brand').textContent+'</b>', HEADING, SUMMARY, '', t, D);
     } else if(!r){
       setCaption('<b>All routes</b>', 'Five routes, one process', SUMMARY, '', t, D);
     } else if(!step || step.fast){
@@ -869,6 +874,7 @@ html.routes{--cap:124px}
   function startRoutes(){
     routePlan = planRoutes();
     window.__video.duration = routePlan.duration;
+    window.__video.still = routePlan.summary + 500;
     renderRoutes(0);
     if(!window.__videoManual){
       var t0 = performance.now();
